@@ -13,14 +13,13 @@
 
 ### 3. Remote: ESP32-Wroom über Wifi-AP ssid : VL53L5CX-BNO055   
 
-<img width="734" height="379" alt="image" src="https://github.com/user-attachments/assets/62074242-c5ea-4c4c-9429-0ea4a7aedbd6" />
-
 ### Hardware Verdrahtung mit ESP32-Wroom 
 
 ### BMo055 adafruid    adr: 0x28  p_arr = [q[0],-q[2],q[1],q[3]]
+<img width="1309" height="707" alt="bno055-adafruid" src="https://github.com/user-attachments/assets/9ecf6298-4693-46c0-9930-0506ad70182a" />
 
 ### BMo055 china clone adr: 0x29  p_arr = [q[0],-q[1],-q[2],q[3]]
-<img width="698" height="336" alt="bno055-china" src="https://github.com/user-attachments/assets/013288f7-3f4c-43d1-8e4c-db4b71eb8e90" />
+<img width="698" height="336" alt="bno055-china" src="https://github.com/user-attachments/assets/167e1672-32f7-4d84-b46c-a06094be4d2a" />
 
 ## Software:
 
@@ -29,11 +28,11 @@
 ### main_data_wifi.py :  esp32 wroom
 ### create "lib" and upload in "lib" directory : ​vl53l5cx
 ### copy into root folder : sensors.py
-<img width="734" height="656" alt="image" src="https://github.com/user-attachments/assets/df394699-0c30-4e3d-887c-4f92795ab54c" />
+<img width="734" height="656" alt="vl53l5cx-libs-sensor_orig" src="https://github.com/user-attachments/assets/e2c05c2a-552f-4d05-96c9-99ce7bf6b712" />
 
 ### lib BNo055 https://github.com/micropython-IMU/micropython-bno055
 ### copy into root folder : bno055.py, bno055_base,py
-<img width="346" height="356" alt="mpBno055" src="https://github.com/user-attachments/assets/04357947-346e-48a9-ba48-6677bc646b54" />
+<img width="346" height="356" alt="mpBno055" src="https://github.com/user-attachments/assets/57a64eb0-7e7d-4af1-ab01-9f07da18e1a6" />
 
 ### Funktionsweise und optischer Aufbau des Senders: 
 ### Das System sendet Infrarotlicht (940 nm VCSEL, Vertical-Cavity Surface-Emitting Laser) aus. Ein diffraktives optisches Element (DOE) beinflusst den Strahl so, dass ein quadratisches Sichtfeld (Field of View, FoV) von bis zu 63° ausgeleuchtet wird.
@@ -43,7 +42,7 @@
 ### Der Sensor nutzt die Direct ToF-Technologie. Er misst direkt die Zeit \(t\), die ein Laserpuls für die Strecke vom Sensor zum Objekt und wieder zurück benötigt. Die Entfernung \(s\) zum Objekt wird anschließend anhand der konstanten Lichtgeschwindigkeit \(c\) berechnet. Dies wird für alle Strahlen (64) berechnet. Deshalb ergibt sich für ein 4x4 FoV eine Frequenz von 60Hz und für ein 8x8 FoV eine Frequenz von 15 Hz.
 
 ### https://www.glowscript.org/#/user/mmb18/folder/MyPrograms/program/VL53L5CX-BNO055-viewer
-<img width="388" height="390" alt="VpythonWeb-FoV-ToF" src="https://github.com/user-attachments/assets/529f4f0a-a4ca-4815-95cf-e89761607994" />
+<img width="388" height="390" alt="VpythonWeb-FoV-ToF" src="https://github.com/user-attachments/assets/53c8d1f5-9339-4a92-a331-a29f39d62dcc" />
 
 ### Repository klonen
 
