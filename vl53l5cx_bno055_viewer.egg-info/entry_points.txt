@@ -1,0 +1,2 @@
+[console_scripts]
+viewer = viewer.__main__:main

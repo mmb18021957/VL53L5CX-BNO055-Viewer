@@ -1,0 +1,57 @@
+dir "Z:\Viewer" /S /B > liste.txt
+
+# löschen subst
+subst z: /d
+
+py -m pip install .
+
+einmal:
+git config --global user.email "
+git config --global user.name "mmb18021957"
+
+
+cd C:\Users\pm_co\Downloads\VL53L5CX-BNO055-viewer
+git init
+git remote add origin https://github.com/mmb18021957/VL53L5CX-BNO055-Viewer.git
+git add .
+git branch -M main
+git push -u origin main
+
+
+Mehrere Commits löschen
+git reset --hard HEAD~5
+git push --force
+
+Lokale Änderungen → GitHub hochladen
+git add .
+git commit -m "Update: README, Code, Wheel"
+git push
+
+Änderungen von GitHub → lokal holen
+git pull
+
+#run tests
+py -m pytest viewer/tests/test_serial_reader.py
+py -m pytest viewer/tests/test_filters.py
+py -m pytest viewer/tests/test_geometry.py
+py -m pytest -v viewer/tests/
+py -m pytest viewer/tests/test_geometry.py::TestRotatePointsByQuaternion::test_90_degree_rotation_around_z
+
+
+subst z: C:\Users\pm_co\Downloads\github\VL53L5CX-BNO055-Viewer
+z: 
+
+subst z: C:\Users\pm_co\Downloads\VL53L5CX-BNO055-viewer
+z:
+
+http://localhost:8080 
+
+
+py -m viewer --port COM3
+
+py -m viewer --port COM4
+
+py -m viewer --port COM5
+
+py -m viewer --use-udp
+
