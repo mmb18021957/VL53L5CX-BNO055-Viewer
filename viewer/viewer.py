@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""VL53L5CX Point Cloud Viewer - neue Standard-Version mit stabilem Mapping."""
+"""VL53L5CX Point Cloud Viewer – Neuimplementierung mit vollständigem GUI und Override-Distanz."""
 
 import argparse
 import logging
@@ -10,14 +10,6 @@ from pathlib import Path
 import numpy as np
 import viser
 from scipy.spatial.transform import Rotation
-
-def hue_to_rgb(h):
-    h = float(h) / 255.0
-    r = int(np.sin(2*np.pi*h) * 127 + 128)
-    g = int(np.sin(2*np.pi*(h + 1/3)) * 127 + 128)
-    b = int(np.sin(2*np.pi*(h + 2/3)) * 127 + 128)
-    return np.array([r, g, b], dtype=np.uint8)
-
 
 from . import config
 from .filters import TemporalFilter, fit_plane, fit_plane_ransac
@@ -36,12 +28,25 @@ logger = logging.getLogger("vl53l5cx_viewer.main")
 
 
 # ---------------------------------------------------------------------------
+# Hilfsfunktionen
+# ---------------------------------------------------------------------------
+
+def hue_to_rgb(h: int) -> np.ndarray:
+    """Einfacher Hue→RGB-Mapper für 0–255."""
+    x = float(h) / 255.0
+    r = int(np.sin(2 * np.pi * x) * 127 + 128)
+    g = int(np.sin(2 * np.pi * (x + 1.0 / 3.0)) * 127 + 128)
+    b = int(np.sin(2 * np.pi * (x + 2.0 / 3.0)) * 127 + 128)
+    return np.array([r, g, b], dtype=np.uint8)
+
+
+# ---------------------------------------------------------------------------
 # Mapping State
 # ---------------------------------------------------------------------------
 
 @dataclass
 class MappingState:
-    """State for mapping mode point accumulation (world coordinates)."""
+    """Zwischenspeicher für Mapping-Punktwolke in Weltkoordinaten."""
 
     accumulated_points: list[np.ndarray] = field(default_factory=list)
     accumulated_colors: list[np.ndarray] = field(default_factory=list)
@@ -64,17 +69,23 @@ class MappingState:
 
     def get_display_data(self) -> tuple[np.ndarray, np.ndarray]:
         if not self.accumulated_points:
-            return np.empty((0, 3), dtype=np.float32), np.empty((0, 3), dtype=np.uint8)
+            empty_pts = np.empty((0, 3), dtype=np.float32)
+            empty_cols = np.empty((0, 3), dtype=np.uint8)
+            return empty_pts, empty_cols
         if len(self.accumulated_points) == 1:
             return self.accumulated_points[0], self.accumulated_colors[0]
-        return np.vstack(self.accumulated_points), np.vstack(self.accumulated_colors)
+        pts = np.vstack(self.accumulated_points)
+        cols = np.vstack(self.accumulated_colors)
+        return pts, cols
 
     def total_points(self) -> int:
         return sum(len(p) for p in self.accumulated_points)
 
     def downsample(self, voxel_size: float, max_points: int) -> None:
+        """Voxelgrid-Downsampling mit Obergrenze für Punktzahl."""
         if not self.accumulated_points:
             return
+
         all_points = np.vstack(self.accumulated_points)
         all_colors = np.vstack(self.accumulated_colors)
 
@@ -98,18 +109,20 @@ class MappingState:
 
 
 # ---------------------------------------------------------------------------
-# Viewer Class
+# Viewer-Klasse
 # ---------------------------------------------------------------------------
 
 class VL53L5CXViewer:
-    """Real-time point cloud viewer for VL53L5CX ToF sensor."""
+    """Echtzeit-Viewer für VL53L5CX mit IMU, Mapping und vollständigem GUI."""
 
     def __init__(self, reader):
         self.serial_reader = reader
 
+        # Geometrie / Zonen
         self.zone_angles = compute_zone_angles()
         self.temporal_filter = TemporalFilter()
 
+        # Board-Positionen und Offsets
         self.imu_board_center = (
             np.array(config.IMU_BOARD.world_position)
             - np.array(config.IMU_BOARD.sensor_offset)
@@ -123,14 +136,20 @@ class VL53L5CXViewer:
             - np.array(config.IMU_BOARD.world_position)
         )
 
+        # Ray-Update-Status
         self._ray_update_counter = 0
         self._rays_dirty = False
         self._last_ray_update = 0.0
         self._ray_update_interval = 0.01
+
+        # Zielauflösung (Zonen)
         self.target_resolution = 8
 
+        # Platzhalter für GUI-Elemente
+        self.scene = None
+
     # -----------------------------------------------------------------------
-    # Scene Setup
+    # Szene-Aufbau
     # -----------------------------------------------------------------------
 
     def _setup_scene(self, server: viser.ViserServer) -> None:
@@ -140,10 +159,11 @@ class VL53L5CXViewer:
         self.scene = create_scene_hierarchy(server, assets_dir, self.zone_angles)
 
     # -----------------------------------------------------------------------
-    # GUI Setup
+    # GUI-Aufbau
     # -----------------------------------------------------------------------
 
     def _setup_gui(self, server: viser.ViserServer, mapping_state: MappingState) -> None:
+        # IMU-Yaw
         self.imu_yaw = server.gui.add_slider(
             "Yaw (deg)", min=-180, max=180, step=1, initial_value=130.0
         )
@@ -241,15 +261,19 @@ class VL53L5CXViewer:
                     self.plane_method_dropdown.value == "RANSAC"
                 )
 
+            # Override Distance Slider (neu)
+            self.override_distance_slider = server.gui.add_slider(
+                "Override Distance (mm)", min=0, max=4000, step=10, initial_value=1000
+            )
+
         # Mapping
         with server.gui.add_folder("Mapping"):
             self.mapping_checkbox = server.gui.add_checkbox(
                 "Mapping Mode", initial_value=False
             )
 
-            # Neuer Color-Slider (0–255)
             self.map_color_slider = server.gui.add_slider(
-                "Map Color (Hue)", min=0, max=255, step=1, initial_value=120            
+                "Map Color (Hue)", min=0, max=255, step=1, initial_value=120
             )
             self.voxel_size_slider = server.gui.add_slider(
                 "Voxel Size (mm)", min=5, max=50, step=5, initial_value=10
@@ -265,7 +289,7 @@ class VL53L5CXViewer:
                 mapping_state.request_clear()
 
             @self.mapping_checkbox.on_update
-            def _on_mapping_toggle(event):
+            def _on_mapping_toggle(event: viser.GuiEvent) -> None:
                 if self.mapping_checkbox.value:
                     self.current_map_color = hue_to_rgb(self.map_color_slider.value)
                     server.scene.remove_by_name("/breadboard/tof/sensor/points")
@@ -296,12 +320,13 @@ class VL53L5CXViewer:
                 )
 
     # -----------------------------------------------------------------------
-    # Scene Transforms
+    # Szenen-Transformationen
     # -----------------------------------------------------------------------
 
     def _update_scene_transforms(
         self, corrected_quat: np.ndarray, imu_connected: bool, apply_rotation: bool
     ) -> tuple[np.ndarray, Rotation] | None:
+        """Aktualisiert IMU- und ToF-Board in der Szene und liefert ToF-Sensorposition + Rotation."""
         imu_sensor_pos = np.array(config.IMU_BOARD.world_position)
 
         if apply_rotation and imu_connected:
@@ -330,15 +355,15 @@ class VL53L5CXViewer:
 
             return tof_sensor_pos, imu_rot
 
-        else:
-            self.scene.imu_board.wxyz = (1.0, 0.0, 0.0, 0.0)
-            self.scene.imu_board.position = tuple(self.imu_board_center)
-            self.scene.tof_board.wxyz = (1.0, 0.0, 0.0, 0.0)
-            self.scene.tof_board.position = tuple(self.tof_board_center)
-            return None
+        # Keine Rotation / kein IMU
+        self.scene.imu_board.wxyz = (1.0, 0.0, 0.0, 0.0)
+        self.scene.imu_board.position = tuple(self.imu_board_center)
+        self.scene.tof_board.wxyz = (1.0, 0.0, 0.0, 0.0)
+        self.scene.tof_board.position = tuple(self.tof_board_center)
+        return None
 
     # -----------------------------------------------------------------------
-    # Frame Processing (mit stabilem Mapping)
+    # Frame-Verarbeitung
     # -----------------------------------------------------------------------
 
     def _process_frame(
@@ -346,6 +371,12 @@ class VL53L5CXViewer:
     ):
         distances, status, quaternion = self.serial_reader.get_data()
 
+        # Override: wenn alle Statuswerte 5 sind, Distanz durch Slider-Wert ersetzen
+        if np.all(distances == 4000):
+            override_value = self.override_distance_slider.value
+            distances = np.full_like(distances, override_value, dtype=np.float32)
+
+        # Optionales temporales Filter
         if self.filter_checkbox.value:
             distances = self.temporal_filter.apply(
                 distances, self.filter_strength_slider.value
@@ -356,7 +387,7 @@ class VL53L5CXViewer:
 
         corrected_quat = correct_imu_to_tof_frame(quaternion) if imu_connected else quaternion
 
-        # Clear Map
+        # Mapping löschen, falls angefordert
         if mapping_state.process_clear_if_requested():
             self.point_count_text.value = "0"
             server.scene.remove_by_name("/map/points")
@@ -375,7 +406,7 @@ class VL53L5CXViewer:
 
         distances_full = distances.copy()
 
-        # Downsampling (Resolution)
+        # Auflösungs-Downsampling (8→4→2→1)
         if self.target_resolution < 8:
             factor = 8 // self.target_resolution
 
@@ -417,7 +448,7 @@ class VL53L5CXViewer:
             valid_local = points_local[valid_mask].astype(np.float32)
             valid_colors = colors[valid_mask]
 
-            # Mapping: Punkte sammeln in Weltkoordinaten
+            # Mapping: Punkte in Weltkoordinaten sammeln
             if self.mapping_checkbox.value:
                 if transform_result is not None:
                     tof_sensor_pos, imu_rot = transform_result
@@ -435,13 +466,11 @@ class VL53L5CXViewer:
                         + np.array(config.TOF_BOARD.world_position)
                     )
 
-                # Farbe für diesen Layer aus Slider holen
+                # Farbe für Mapping-Layer aus Hue-Slider
+                self.current_map_color = hue_to_rgb(self.map_color_slider.value)
                 layer_colors = np.tile(self.current_map_color, (len(valid_world), 1))
 
-                # Punkte + Layer-Farbe speichern
                 mapping_state.add(valid_world, layer_colors)
-                                
-                
 
                 if (
                     mapping_state.total_points() > config.DOWNSAMPLE_POINT_THRESHOLD
@@ -452,7 +481,7 @@ class VL53L5CXViewer:
                     max_pts = self.max_s_slider.value * 1000
                     mapping_state.downsample(voxel_size_m, max_pts)
 
-            # Map IMMER anzeigen
+            # Map immer anzeigen
             display_points, display_colors = mapping_state.get_display_data()
             self.point_count_text.value = f"{len(display_points):,}"
 
@@ -465,7 +494,7 @@ class VL53L5CXViewer:
                     point_shape="circle",
                 )
 
-            # Live-Punkte nur wenn Mapping AUS
+            # Live-Punkte nur, wenn Mapping aus
             if not self.mapping_checkbox.value:
                 server.scene.add_point_cloud(
                     "/breadboard/tof/sensor/points",
@@ -475,7 +504,7 @@ class VL53L5CXViewer:
                     point_shape="circle",
                 )
 
-            # Plane fitting
+            # Plane-Fitting
             if self.fit_plane_checkbox.value and len(valid_local) >= 3:
                 if self.plane_method_dropdown.value == "RANSAC":
                     threshold_m = self.ransac_threshold_slider.value / 1000.0
@@ -508,7 +537,7 @@ class VL53L5CXViewer:
 
         self.freq_text.value = f"{self.serial_reader.data_fps:.1f}"
 
-        # Rays (einfach, ohne Doppel-Logik)
+        # Zone-Rays aktualisieren
         self._ray_update_counter += 1
         if self._ray_update_counter % 5 == 0 or self._rays_dirty:
             coord_method = next(
@@ -526,7 +555,7 @@ class VL53L5CXViewer:
         return plane_handle
 
     # -----------------------------------------------------------------------
-    # Run Loop
+    # Run-Loop
     # -----------------------------------------------------------------------
 
     def run(self, host: str = "0.0.0.0", port: int = 8080) -> None:
