@@ -12,6 +12,7 @@
 ### 2. Remote: ESP32-Wroom -->  Esp32-C3 (USB-C)
 
 ### 3. Remote: ESP32-Wroom über Wifi-AP ssid : VL53L5CX-BNO055   
+<img width="987" height="772" alt="graph_Bno055_1" src="https://github.com/user-attachments/assets/8ab10044-d533-45ec-863b-7a3aa2afff66" />
 
 ### Hardware Verdrahtung mit ESP32-Wroom 
 
