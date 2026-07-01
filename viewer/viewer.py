@@ -261,6 +261,11 @@ class VL53L5CXViewer:
                     self.plane_method_dropdown.value == "RANSAC"
                 )
 
+            # VL53L5CX-Schalter
+            self.vl53l5cx_override_checkbox = server.gui.add_checkbox(
+                "Override aktivieren", initial_value=False
+            )
+
             # Override Distance Slider (neu)
             self.override_distance_slider = server.gui.add_slider(
                 "Override Distance (mm)", min=0, max=4000, step=10, initial_value=1000
@@ -371,8 +376,8 @@ class VL53L5CXViewer:
     ):
         distances, status, quaternion = self.serial_reader.get_data()
 
-        # Override: wenn alle Statuswerte 5 sind, Distanz durch Slider-Wert ersetzen
-        if np.all(distances == 4000):
+        # Override: wenn alle Distanzewerte 4000 sind, Distanz durch Slider-Wert ersetzen
+        if np.all(distances == 4000) or (self.vl53l5cx_override_checkbox.value):
             override_value = self.override_distance_slider.value
             distances = np.full_like(distances, override_value, dtype=np.float32)
 
