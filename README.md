@@ -13,6 +13,7 @@
 
 ### 3. Remote: ESP32-Wroom über Wifi-AP ssid : VL53L5CX-BNO055   
 <img width="987" height="772" alt="graph_Bno055_1" src="https://github.com/user-attachments/assets/8ab10044-d533-45ec-863b-7a3aa2afff66" />
+<img width="1149" height="818" alt="image" src="https://github.com/user-attachments/assets/f8126538-c561-4939-b8af-7dd106eae732" />
 
 ### Hardware Verdrahtung mit ESP32-Wroom 
 
