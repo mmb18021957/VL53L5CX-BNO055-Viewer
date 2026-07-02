@@ -16,7 +16,7 @@
 <img width="1149" height="818" alt="image" src="https://github.com/user-attachments/assets/f8126538-c561-4939-b8af-7dd106eae732" />
 
 ### Hardware Verdrahtung mit ESP32-Wroom 
-<img width="734" height="588" alt="i2c-vl53l5cx-bno055-1_orig" src="https://github.com/user-attachments/assets/5739e394-6566-4d24-a17d-2f674d491903" />
+<img width="817" height="588" alt="i2c-vl53l5cx-bno055-1_orig" src="https://github.com/user-attachments/assets/8667779a-87de-4db9-ade0-b7779d77862b" />
 
 ### BMo055 adafruid    adr: 0x28  p_arr = [q[0],-q[2],q[1],q[3]]
 <img width="794" height="769" alt="Bno055-ESP32" src="https://github.com/user-attachments/assets/8ae1bc59-db3a-42b4-a4c0-e1490c6c4a5f" />
